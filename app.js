@@ -1,169 +1,14 @@
 class HabitTracker {
     constructor() {
-        this.habits = ['treino', 'jogos', 'redes', 'pornografia', 'oracao', 'leitura', 'jejum', 'agua', 'sono'];
-        this.data = this.loadData();
-        this.init();
-    }
-
-    loadData() {
-        const stored = localStorage.getItem('30diasComDeus');
-        return stored ? JSON.parse(stored) : {
-            startDate: new Date().toISOString().split('T')[0],
-            days: {}
-        };
-    }
-
-    saveData() {
-        localStorage.setItem('30diasComDeus', JSON.stringify(this.data));
-    }
-
-    getCurrentDay() {
-        const start = new Date(this.data.startDate);
-        const today = new Date();
-        const diffTime = Math.abs(today - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return Math.min(diffDays, 30);
-    }
-
-    getTodayKey() {
-        return new Date().toISOString().split('T')[0];
-    }
-
-    init() {
-        document.getElementById('currentDay').textContent = this.getCurrentDay();
-        this.loadTodayData();
-        this.setupEventListeners();
-        this.updateProgress();
-        this.updateStats();
-    }
-
-    setupEventListeners() {
-        // Event listeners para checkboxes
-        this.habits.forEach(habit => {
-            const checkbox = document.getElementById(habit);
-            const habitDiv = document.querySelector(`[data-habit="${habit}"]`);
-            
-            checkbox.addEventListener('change', () => {
-                this.updateProgress();
-                this.autoSave();
-            });
-
-            // Permitir clicar na div inteira
-            habitDiv.addEventListener('click', (e) => {
-                if (e.target !== checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    this.updateProgress();
-                    this.autoSave();
-                }
-            });
-        });
-
-        // Event listener para botão de salvar
-        const saveBtn = document.getElementById('saveBtn');
-        saveBtn.addEventListener('click', () => this.saveProgress());
-        saveBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            this.saveProgress();
-        });
-
-        // Auto-save do diário
-        document.getElementById('diaryText').addEventListener('input', () => {
-            clearTimeout(this.diaryTimeout);
-            this.diaryTimeout = setTimeout(() => this.autoSave(), 2000);
-        });
-    }
-
-    loadTodayData() {
-        const today = this.getTodayKey();
-        const todayData = this.data.days[today];
-
-        if (todayData) {
-            this.habits.forEach((habit, index) => {
-                document.getElementById(habit).checked = todayData.habits[index] || false;
-            });
-            document.getElementById('diaryText').value = todayData.diary || '';
-        }
-    }
-
-    updateProgress() {
-        const completed = this.habits.filter(habit => 
-            document.getElementById(habit).checked
-        ).length;
-
-        const percentage = (completed / this.habits.length) * 100;
-
-        document.getElementById('progressFill').style.width = percentage + '%';
-        document.getElementById('progressText').textContent = 
-            `${completed} de ${this.habits.length} hábitos concluídos`;
-
-        // Atualizar visual dos hábitos
-        this.habits.forEach(habit => {
-            const checkbox = document.getElementById(habit);
-            const habitDiv = document.querySelector(`[data-habit="${habit}"]`);
-            
-            if (checkbox.checked) {
-                habitDiv.classList.add('completed');
-            } else {
-                habitDiv.classList.remove('completed');
-            }
-        });
-    }
-
-    updateStats() {
-        const days = Object.values(this.data.days);
-        const totalDays = days.length;
+        this.habits = [
+            'treino', 'jogos', 'redes', 'pornografia', 
+            'oracao', 'leitura', 'jejum', 'agua', 'sono'
+        ];
         
-        if (totalDays === 0) {
-            document.getElementById('totalDays').textContent = '0';
-            document.getElementById('streak').textContent = '0';
-            document.getElementById('avgProgress').textContent = '0%';
-            document.getElementById('bestHabit').textContent = '-';
-            return;
-        }
-
-        // Dias completos
-        const completeDays = days.filter(day => 
-            day.habits.filter(h => h).length === this.habits.length
-        ).length;
-
-        // Sequência atual
-        let currentStreak = 0;
-        const sortedDays = Object.keys(this.data.days).sort().reverse();
-        
-        for (const day of sortedDays) {
-            const dayData = this.data.days[day];
-            const completed = dayData.habits.filter(h => h).length;
-            if (completed === this.habits.length) {
-                currentStreak++;
-            } else {
-                break;
-            }
-        }
-
-        // Média de progresso
-        const totalProgress = days.reduce((sum, day) => {
-            return sum + (day.habits.filter(h => h).length / this.habits.length);
-        }, 0);
-        const avgProgress = Math.round((totalProgress / totalDays) * 100);
-
-        // Melhor hábito
-        const habitCounts = {};
-        this.habits.forEach(habit => habitCounts[habit] = 0);
-        
-        days.forEach(day => {
-            day.habits.forEach((completed, index) => {
-                if (completed) habitCounts[this.habits[index]]++;
-            });
-        });
-
-        const bestHabitKey = Object.keys(habitCounts).reduce((a, b) => 
-            habitCounts[a] > habitCounts[b] ? a : b
-        );
-
-        const habitLabels = {
+        this.habitNames = {
             'treino': 'Treino',
-            'jogos': 'Jogos',
-            'redes': 'Redes',
+            'jogos': 'Sem Jogos',
+            'redes': 'Sem Redes',
             'pornografia': 'Pureza',
             'oracao': 'Oração',
             'leitura': 'Leitura',
@@ -172,43 +17,282 @@ class HabitTracker {
             'sono': 'Sono'
         };
 
-        // Atualizar interface
-        document.getElementById('totalDays').textContent = completeDays;
-        document.getElementById('streak').textContent = currentStreak;
-        document.getElementById('avgProgress').textContent = avgProgress + '%';
-        document.getElementById('bestHabit').textContent = habitLabels[bestHabitKey];
+        this.init();
     }
 
-    autoSave() {
-        const today = this.getTodayKey();
-        const habitStates = this.habits.map(habit => 
-            document.getElementById(habit).checked
-        );
-        const diary = document.getElementById('diaryText').value;
+    init() {
+        this.checkNewDay();
+        this.loadProgress();
+        this.updateDisplay();
+        this.bindEvents();
+    }
 
-        this.data.days[today] = {
-            habits: habitStates,
-            diary: diary,
-            timestamp: new Date().toISOString()
-        };
+    // ✅ NOVA FUNÇÃO: Verifica se é um novo dia
+    checkNewDay() {
+        const today = this.getTodayString();
+        const lastSaveDate = localStorage.getItem('lastSaveDate');
+        
+        if (lastSaveDate && lastSaveDate !== today) {
+            // É um novo dia! Resetar checkboxes
+            this.resetDailyProgress();
+        }
+    }
 
-        this.saveData();
-        this.updateStats();
+    // ✅ NOVA FUNÇÃO: Reset diário
+    resetDailyProgress() {
+        // Limpar checkboxes
+        this.habits.forEach(habit => {
+            const checkbox = document.getElementById(habit);
+            if (checkbox) {
+                checkbox.checked = false;
+                checkbox.parentElement.classList.remove('completed');
+            }
+        });
+
+        // Limpar diário
+        const diaryText = document.getElementById('diaryText');
+        if (diaryText) {
+            diaryText.value = '';
+        }
+
+        // Atualizar progresso visual
+        this.updateProgress();
+    }
+
+    // ✅ FUNÇÃO MELHORADA: Data de hoje
+    getTodayString() {
+        const today = new Date();
+        return today.toDateString(); // Ex: "Mon Sep 01 2025"
+    }
+
+    loadProgress() {
+        // Carregar dados salvos
+        const savedData = localStorage.getItem('habitData');
+        if (savedData) {
+            this.data = JSON.parse(savedData);
+        } else {
+            this.data = {
+                startDate: new Date().toDateString(),
+                dailyProgress: {},
+                totalStats: {
+                    completedDays: 0,
+                    currentStreak: 0,
+                    bestStreak: 0,
+                    habitStats: {}
+                }
+            };
+        }
+
+        // Carregar estado dos checkboxes APENAS se for o mesmo dia
+        const today = this.getTodayString();
+        const lastSaveDate = localStorage.getItem('lastSaveDate');
+        
+        if (lastSaveDate === today) {
+            // Mesmo dia - carregar estado salvo
+            this.habits.forEach(habit => {
+                const saved = localStorage.getItem(`habit_${habit}`);
+                const checkbox = document.getElementById(habit);
+                if (checkbox && saved === 'true') {
+                    checkbox.checked = true;
+                    checkbox.parentElement.classList.add('completed');
+                }
+            });
+
+            // Carregar diário
+            const savedDiary = localStorage.getItem('diary_today');
+            const diaryText = document.getElementById('diaryText');
+            if (diaryText && savedDiary) {
+                diaryText.value = savedDiary;
+            }
+        }
+    }
+
+    bindEvents() {
+        // Event listeners para checkboxes
+        this.habits.forEach(habit => {
+            const checkbox = document.getElementById(habit);
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    this.toggleHabit(habit);
+                });
+            }
+        });
+
+        // Event listener para botão salvar
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveProgress();
+            });
+        }
+
+        // Auto-save do diário
+        const diaryText = document.getElementById('diaryText');
+        if (diaryText) {
+            diaryText.addEventListener('input', () => {
+                localStorage.setItem('diary_today', diaryText.value);
+            });
+        }
+    }
+
+    toggleHabit(habitId) {
+        const checkbox = document.getElementById(habitId);
+        const habitElement = checkbox.parentElement;
+        
+        if (checkbox.checked) {
+            habitElement.classList.add('completed');
+        } else {
+            habitElement.classList.remove('completed');
+        }
+
+        // Salvar estado imediatamente
+        localStorage.setItem(`habit_${habitId}`, checkbox.checked);
+        
+        this.updateProgress();
+    }
+
+    updateProgress() {
+        const completed = this.habits.filter(habit => {
+            const checkbox = document.getElementById(habit);
+            return checkbox && checkbox.checked;
+        }).length;
+
+        const total = this.habits.length;
+        const percentage = Math.round((completed / total) * 100);
+
+        // Atualizar barra de progresso
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        if (progressFill) {
+            progressFill.style.width = `${percentage}%`;
+        }
+        
+        if (progressText) {
+            progressText.textContent = `${completed} de ${total} hábitos concluídos`;
+        }
     }
 
     saveProgress() {
-        this.autoSave();
+        const today = this.getTodayString();
+        const completed = this.habits.filter(habit => {
+            const checkbox = document.getElementById(habit);
+            return checkbox && checkbox.checked;
+        }).length;
+
+        const total = this.habits.length;
+        const percentage = Math.round((completed / total) * 100);
+
+        // Salvar progresso do dia
+        this.data.dailyProgress[today] = {
+            completed,
+            total,
+            percentage,
+            habits: {}
+        };
+
+        // Salvar estado individual dos hábitos
+        this.habits.forEach(habit => {
+            const checkbox = document.getElementById(habit);
+            this.data.dailyProgress[today].habits[habit] = checkbox ? checkbox.checked : false;
+        });
+
+        // Salvar diário
+        const diaryText = document.getElementById('diaryText');
+        if (diaryText) {
+            this.data.dailyProgress[today].diary = diaryText.value;
+        }
+
+        // Atualizar estatísticas
+        this.updateStats();
+
+        // Salvar no localStorage
+        localStorage.setItem('habitData', JSON.stringify(this.data));
+        localStorage.setItem('lastSaveDate', today);
+
+        // Feedback visual
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+            saveBtn.textContent = '✅ Salvo!';
+            saveBtn.classList.add('success');
+            
+            setTimeout(() => {
+                saveBtn.textContent = '💾 Salvar Progresso';
+                saveBtn.classList.remove('success');
+            }, 2000);
+        }
+
+        this.updateDisplay();
+    }
+
+    updateStats() {
+        const days = Object.keys(this.data.dailyProgress);
+        const completedDays = days.filter(day => 
+            this.data.dailyProgress[day].percentage === 100
+        ).length;
+
+        // Calcular sequência atual
+        let currentStreak = 0;
+        const sortedDays = days.sort((a, b) => new Date(b) - new Date(a));
         
-        const btn = document.getElementById('saveBtn');
-        const originalText = btn.textContent;
+        for (let day of sortedDays) {
+            if (this.data.dailyProgress[day].percentage === 100) {
+                currentStreak++;
+            } else {
+                break;
+            }
+        }
+
+        // Estatísticas dos hábitos
+        const habitStats = {};
+        this.habits.forEach(habit => {
+            const completedCount = days.filter(day => 
+                this.data.dailyProgress[day].habits[habit]
+            ).length;
+            habitStats[habit] = Math.round((completedCount / days.length) * 100) || 0;
+        });
+
+        // Encontrar melhor hábito
+        const bestHabit = Object.keys(habitStats).reduce((a, b) => 
+            habitStats[a] > habitStats[b] ? a : b
+        );
+
+        this.data.totalStats = {
+            completedDays,
+            currentStreak,
+            habitStats,
+            bestHabit: this.habitNames[bestHabit] || '-'
+        };
+    }
+
+    updateDisplay() {
+        // Atualizar dia atual
+        const startDate = new Date(this.data.startDate);
+        const today = new Date();
+        const daysDiff = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        const currentDay = Math.min(daysDiff, 30);
         
-        btn.textContent = '✅ Salvo!';
-        btn.classList.add('success');
+        const currentDayElement = document.getElementById('currentDay');
+        if (currentDayElement) {
+            currentDayElement.textContent = currentDay;
+        }
+
+        // Atualizar estatísticas
+        const stats = this.data.totalStats;
+        const days = Object.keys(this.data.dailyProgress);
         
-        setTimeout(() => {
-            btn.textContent = originalText;
-            btn.classList.remove('success');
-        }, 2000);
+        document.getElementById('totalDays').textContent = stats.completedDays || 0;
+        document.getElementById('streak').textContent = stats.currentStreak || 0;
+        
+        // Média geral
+        const avgProgress = days.length > 0 ? 
+            Math.round(days.reduce((sum, day) => sum + this.data.dailyProgress[day].percentage, 0) / days.length) : 0;
+        document.getElementById('avgProgress').textContent = `${avgProgress}%`;
+        
+        document.getElementById('bestHabit').textContent = stats.bestHabit || '-';
+
+        // Atualizar progresso atual
+        this.updateProgress();
     }
 }
 
